@@ -14,7 +14,7 @@ import (
 // BlockSize is 16
 
 var key = []byte("example key 1234")
-var plaintext = []byte("this is a very important secret message 123456789 :)")
+var plaintext = []byte("You know the thing about a shark, he’s got lifeless eyes. Black eyes like a doll’s eyes. When he comes at ya, he doesn’t seem to be living until he bites ya and those black eyes roll over and white and then, ah, then you hear that terrible high-pitch screaming. The ocean turns red and despite all the pounding and hollering, they all come in and they rip you to pieces.")
 var emptyBytes = []byte("")
 var blockSize = 16
 
@@ -107,8 +107,6 @@ func stripPadding(plaintext []byte) ([]byte, error) {
 
 	paddingError := errors.New("invalid padding")
 	lastByte := len(plaintext) - 1
-
-	fmt.Println("Checking padding:", plaintext)
 
 	// Check for invalid padding values above block size
 	if int(plaintext[lastByte]) > blockSize {

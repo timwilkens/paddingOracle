@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,9 +11,11 @@ import (
 )
 
 var blockSize = 16
+var emptyBytes = []byte("")
 
 func main() {
 	cipher := getCipher()
+	fmt.Println("ciphertext>> ", cipher)
 	data, err := base64.StdEncoding.DecodeString(cipher)
 	if err != nil {
 		fmt.Println(err)
@@ -27,22 +30,17 @@ func main() {
 
 func doOracle(data []byte) {
 
-	fmt.Println(data)
 	blocks := breakIntoBlocks(data)
+	fmt.Println("Decrypting", len(blocks), "blocks")
 	realIV := blocks[0]
-	fmt.Println("IV ", realIV)
 	blocks = blocks[1:]
-	for i := 0; i < len(blocks); i++ {
-		fmt.Println(blocks[i])
-	}
 
 	var solved []byte
 
 	for currentBlock := len(blocks) - 1; currentBlock >= 0; currentBlock-- {
+		fmt.Println("Decoding block", currentBlock)
 
-		// Last block first
 		block := blocks[currentBlock]
-
 		intermediates := make(map[int]byte)
 
 		for currentByte := blockSize - 1; currentByte >= 0; currentByte-- {
@@ -80,11 +78,24 @@ func doOracle(data []byte) {
 				}
 			}
 		}
+		depadded, _ := stripPadding(reverse(solved))
+		fmt.Println(">> ", string(depadded))
 	}
-	for i := len(solved) - 1; i >= 0; i-- {
-		fmt.Print(string(solved[i]))
+	solved, err := stripPadding(reverse(solved))
+	if err != nil {
+		panic("Got plaintext with bad padding!")
 	}
-	fmt.Println()
+	fmt.Println("Plaintext:")
+	fmt.Println(string(solved))
+}
+
+func reverse(slice []byte) []byte {
+	numItems := len(slice)
+	reversed := make([]byte, numItems)
+	for i := 0; i < len(slice); i++ {
+		reversed[i] = slice[numItems-1-i]
+	}
+	return reversed
 }
 
 func breakIntoBlocks(ciphertext []byte) [][]byte {
@@ -131,4 +142,35 @@ func getCipher() string {
 		panic(err)
 	}
 	return string(body)
+}
+
+func stripPadding(plaintext []byte) ([]byte, error) {
+
+	paddingError := errors.New("invalid padding")
+	lastByte := len(plaintext) - 1
+
+	// Check for invalid padding values above block size
+	if int(plaintext[lastByte]) > blockSize {
+		return emptyBytes, paddingError
+	}
+
+	paddingValue := int(plaintext[lastByte])
+
+	if paddingValue == 0 {
+		return emptyBytes, paddingError
+	}
+
+	// check for padding values longer than string
+	if paddingValue > len(plaintext) {
+		return emptyBytes, paddingError
+	}
+
+	for checked := 0; checked < paddingValue; checked++ {
+		if int(plaintext[len(plaintext)-1]) != paddingValue {
+			return emptyBytes, paddingError
+		}
+		// Strip padding byte
+		plaintext = plaintext[:len(plaintext)-1]
+	}
+	return plaintext, nil
 }
